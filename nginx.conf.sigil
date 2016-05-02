@@ -1,3 +1,5 @@
+{{ if .SSL_SERVER_NAME }}
+
 server {
   listen      [::]:80;
   listen      80;
@@ -12,7 +14,7 @@ server {
 server {
   listen      [::]:443 ssl spdy;
   listen      443 ssl spdy;
-  {{ if .SSL_SERVER_NAME }}server_name {{ .SSL_SERVER_NAME }}; {{ end }}
+  server_name {{ .SSL_SERVER_NAME }};
 
   access_log  /var/log/nginx/{{ .APP }}-access.log;
   error_log   /var/log/nginx/{{ .APP }}-error.log;
@@ -24,11 +26,11 @@ server {
   add_header          Alternate-Protocol  443:npn-spdy/2;
 
   location    / {
-    proxy_pass  http://reports.statuscake.com;
+    proxy_pass {{ .PROXY_PASS_URL }};
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
-    proxy_set_header Host status.rotterdam.aluxian.com;
+    proxy_set_header Host {{ .PROXY_PASS_HOST }};
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Port $server_port;
@@ -37,3 +39,32 @@ server {
 
   include {{ .DOKKU_ROOT }}/{{ .APP }}/nginx.conf.d/*.conf;
 }
+
+{{ else }}
+
+server {
+  listen      [::]:80;
+  listen      80;
+  server_name {{ .NOSSL_SERVER_NAME }};
+
+  access_log  /var/log/nginx/{{ .APP }}-access.log;
+  error_log   /var/log/nginx/{{ .APP }}-error.log;
+
+  keepalive_timeout   70;
+
+  location    / {
+    proxy_pass {{ .PROXY_PASS_URL }};
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host {{ .PROXY_PASS_HOST }};
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Port $server_port;
+    proxy_set_header X-Request-Start $msec;
+  }
+
+  include {{ .DOKKU_ROOT }}/{{ .APP }}/nginx.conf.d/*.conf;
+}
+
+{{ end }}
